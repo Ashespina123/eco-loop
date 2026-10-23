@@ -78,17 +78,75 @@ function db(): mysqli
         return $connection;
     }
 
-    // Replace these placeholders with your actual InfinityFree credentials.
-    $host = 'sql208.infinityfree.com';
-    $username = 'if0_42620998';
-    $password = 'uloL5OpGj6';
-    $database = 'if0_42620998_XXX';
+    // Prefer a local .env file for real credentials. Keep the protected
+    // credentials file as a fallback only.
+    $projectRoot = dirname(__DIR__);
+    $envPath = $projectRoot . DIRECTORY_SEPARATOR . '.env';
 
-    if (
-        $username === 'if0_42620998'
-        || $password === 'uloL5OpGj6'
-        || $database === 'if0_42620998_XXX'
-    ) {
+    if (is_file($envPath)) {
+        foreach ((array) @file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $trimmed = trim((string) $line);
+            if ($trimmed === '' || str_starts_with($trimmed, '#')) {
+                continue;
+            }
+
+            [$key, $value] = array_pad(explode('=', $trimmed, 2), 2, '');
+            $key = trim((string) $key);
+            $value = trim((string) $value);
+
+            if ($key === '') {
+                continue;
+            }
+
+            if (
+                (str_starts_with($value, '"') && str_ends_with($value, '"'))
+                || (str_starts_with($value, "'") && str_ends_with($value, "'"))
+            ) {
+                $value = substr($value, 1, -1);
+            }
+
+            $_ENV[$key] = $value;
+            putenv($key . '=' . $value);
+        }
+    }
+
+    $credentialsFile = __DIR__ . '/database.credentials.php';
+    $credentials = [];
+
+    if (is_file($credentialsFile)) {
+        ob_start();
+        try {
+            $loaded = require $credentialsFile;
+        } catch (Throwable $configurationException) {
+            ob_end_clean();
+            logEcoLoopException('EcoLoop database configuration error', $configurationException);
+            throw new RuntimeException(
+                'EcoLoop is temporarily unable to reach its database. Please try again later.',
+                0,
+                $configurationException
+            );
+        }
+
+        $bufferedOutput = ob_get_clean();
+        if ($bufferedOutput !== '') {
+            $configurationError = new RuntimeException('Database credentials file must not emit output.');
+            logEcoLoopException('EcoLoop database configuration error', $configurationError);
+            throw new RuntimeException(
+                'EcoLoop is temporarily unable to reach its database. Please try again later.',
+                0,
+                $configurationError
+            );
+        }
+
+        $credentials = is_array($loaded) ? $loaded : [];
+    }
+
+    $host = getenv('ECOLOOP_DB_HOST') ?: ($credentials['host'] ?? 'localhost');
+    $username = getenv('ECOLOOP_DB_USER') ?: ($credentials['username'] ?? 'root');
+    $password = getenv('ECOLOOP_DB_PASSWORD') ?: ($credentials['password'] ?? '');
+    $database = getenv('ECOLOOP_DB_NAME') ?: ($credentials['database'] ?? 'eco_loop_db');
+
+    if ($database === '') {
         throw new RuntimeException('Database credentials have not been configured.');
     }
 
@@ -121,3 +179,4 @@ function db_configured(): bool
     } catch (Throwable $exception) {
         return false;
     }
+}
