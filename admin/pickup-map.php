@@ -1,0 +1,11 @@
+<?php
+require_once __DIR__ . '/../config/database.php';require_once __DIR__ . '/../includes/auth.php';requireRole('admin');
+$pageTitle='Pickup Map | Eco-Loop';
+$rows=db()->query('SELECT id,reference_number,customer_name,pickup_address,latitude,longitude,status,service_type FROM pickup_requests WHERE latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY created_at DESC')->fetch_all(MYSQLI_ASSOC);
+$markers=[];foreach($rows as $row)$markers[]=['lat'=>(float)$row['latitude'],'lng'=>(float)$row['longitude'],'reference_number'=>$row['reference_number'].' · '.$row['status'],'address'=>($row['customer_name']?:'Customer').' · '.$row['pickup_address'],'status'=>$row['status']];
+require __DIR__.'/../includes/header.php';
+?>
+<div class="dashboard-shell"><?php require __DIR__.'/../includes/navigation.php';?><main class="main-content"><div class="page-header"><div><span class="eyebrow">Operations map</span><h1>Customer Pickup Locations</h1><p>Only saved customer pins are shown; requests without coordinates are not placed on this map.</p></div></div><section class="content-card"><div id="admin-pickups-map" class="dashboard-map" style="height:min(68vh,680px)"></div></section>
+<?php if($rows):?><section class="content-card"><h2>Mapped pickup requests</h2><div class="table-wrap"><table><thead><tr><th>Request</th><th>Status</th><th>Service</th><th>Pickup address</th></tr></thead><tbody><?php foreach($rows as $row):?><tr><td><a href="<?php echo e(APP_ROOT.'/admin/pickup-details.php?id='.(int)$row['id']);?>"><?php echo e($row['reference_number']);?></a></td><td><?php echo e($row['status']);?></td><td><?php echo e($row['service_type']);?></td><td><?php echo e($row['pickup_address']);?></td></tr><?php endforeach;?></tbody></table></div></section><?php else:?><div class="content-card empty-state"><p>No pickup requests have saved map coordinates yet.</p></div><?php endif;?></main></div>
+<script>document.addEventListener('DOMContentLoaded',function(){if(typeof initializePickupMap==='function')initializePickupMap({mapId:'admin-pickups-map',defaultLat:10.291998032473089,defaultLng:123.9347075919448,latInput:{value:''},lngInput:{value:''},markers:<?php echo json_encode($markers,JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP);?>,editable:false,allowUnselected:true});});</script>
+<?php require __DIR__.'/../includes/footer.php';?>
