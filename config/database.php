@@ -1,4 +1,3 @@
-```php
 <?php
 
 if (!defined('APP_ROOT')) {
@@ -19,10 +18,28 @@ if (!defined('APP_ROOT')) {
  */
 function safeEcoLoopExceptionDetails(Throwable $exception): array
 {
+    $credentials = [];
+    $credentialsFile = __DIR__ . '/database.credentials.php';
+    if (is_file($credentialsFile)) {
+        try {
+            $loaded = require $credentialsFile;
+            if (is_array($loaded)) {
+                $credentials = $loaded;
+            }
+        } catch (Throwable $ignored) {
+            // Continue without exposing config details.
+        }
+    }
+
     $redactions = array_filter([
-        'if0_42620998',
-        'uloL5OpGj6 ',
-        'if0_42620998_XXX',
+        (string) ($credentials['host'] ?? ''),
+        (string) ($credentials['username'] ?? ''),
+        (string) ($credentials['password'] ?? ''),
+        (string) ($credentials['database'] ?? ''),
+        (string) (getenv('ECOLOOP_DB_HOST') ?: ''),
+        (string) (getenv('ECOLOOP_DB_USER') ?: ''),
+        (string) (getenv('ECOLOOP_DB_PASSWORD') ?: ''),
+        (string) (getenv('ECOLOOP_DB_NAME') ?: ''),
         (string) ($_POST['password'] ?? ''),
         (string) ($_POST['confirm_password'] ?? ''),
         (string) ($_POST['diagnostic_key'] ?? ''),
@@ -179,4 +196,23 @@ function db_configured(): bool
     } catch (Throwable $exception) {
         return false;
     }
+}
+
+function ensurePartnerLocationsTable(): void
+{
+    db()->query(
+        'CREATE TABLE IF NOT EXISTS partner_locations (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(150) NOT NULL,
+            address VARCHAR(255) NOT NULL,
+            latitude DECIMAL(10,7) NOT NULL,
+            longitude DECIMAL(11,7) NOT NULL,
+            created_by INT UNSIGNED NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_partner_locations_name (name),
+            KEY idx_partner_locations_created_by (created_by)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
 }

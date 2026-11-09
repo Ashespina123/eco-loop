@@ -28,6 +28,20 @@ foreach ($centers as $center) {
         'operating_hours' => $center['operating_hours'], 'contact_details' => $center['contact_details']
     ];
 }
+ensurePartnerLocationsTable();
+$partnerLocations = db()->query('SELECT name, address, latitude, longitude FROM partner_locations ORDER BY name')->fetch_all(MYSQLI_ASSOC);
+foreach ($partnerLocations as $partnerLocation) {
+    $markers[] = [
+        'name' => $partnerLocation['name'],
+        'reference_number' => $partnerLocation['name'],
+        'address' => $partnerLocation['address'],
+        'lat' => (float) $partnerLocation['latitude'],
+        'lng' => (float) $partnerLocation['longitude'],
+        'status' => 'Potential Drop-off Organization – Pending Verification',
+        'accepted_categories' => 'To be confirmed',
+        'operating_hours' => 'To be confirmed',
+    ];
+}
 require __DIR__ . '/../includes/header.php';
 ?>
 <div class="dashboard-shell">
@@ -41,6 +55,10 @@ require __DIR__ . '/../includes/header.php';
         </div>
 
         <div class="content-card">
+            <div class="map-legend" aria-label="Map legend">
+                <span class="map-legend-item"><span class="map-legend-swatch map-legend-swatch-org"></span>Organization Drop-off Locations</span>
+                <span class="map-legend-item"><span class="map-legend-swatch map-legend-swatch-customer"></span>Customer Pickup Locations</span>
+            </div>
             <div id="user-pickup-map" data-markers='<?php echo json_encode($markers, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>' style="height: 420px; width: 100%; border-radius: 16px; overflow: hidden;"></div>
         </div>
     </main>

@@ -5,6 +5,12 @@ requireRole('admin');
 $pageTitle = 'Admin Dashboard | Eco-Loop';
 $admin = currentUser();
 $connection = db();
+$partnerTableExists = false;
+try {
+    $partnerTableExists = (bool) $connection->query("SHOW TABLES LIKE 'partner_locations'")->fetch_assoc();
+} catch (Throwable $ignored) {
+    $partnerTableExists = false;
+}
 $stats = [
     ['Total registered customers', 'SELECT COUNT(*) total FROM users WHERE role="user" AND status="active"', 'users.php'],
     ['New pickup requests', 'SELECT COUNT(*) total FROM pickup_requests WHERE created_at >= NOW() - INTERVAL 1 DAY', 'pickups.php?status=Pending'],
@@ -16,7 +22,16 @@ $stats = [
     ['Pending redemptions', 'SELECT COUNT(*) total FROM reward_redemptions WHERE status="Pending"', 'redemptions.php?status=Pending'],
     ['Active drop-off centers', 'SELECT COUNT(*) total FROM collection_points WHERE is_active=1', 'collection-points.php'],
 ];
-foreach ($stats as &$stat) $stat[] = $connection->query($stat[1])->fetch_assoc()['total'];
+if ($partnerTableExists) {
+    $stats[] = ['Partner locations', 'SELECT COUNT(*) total FROM partner_locations', 'partner-locations.php'];
+}
+foreach ($stats as &$stat) {
+    if ($stat[1] === 'SELECT COUNT(*) total FROM partner_locations' && !$partnerTableExists) {
+        $stat[] = 0;
+        continue;
+    }
+    $stat[] = $connection->query($stat[1])->fetch_assoc()['total'];
+}
 unset($stat);
 $recentPickups = $connection->query('SELECT p.id,p.reference_number,p.status,p.created_at,u.full_name FROM pickup_requests p JOIN users u ON u.id=p.user_id ORDER BY p.created_at DESC,p.id DESC LIMIT 6')->fetch_all(MYSQLI_ASSOC);
 $recentCompleted = $connection->query('SELECT p.id,p.reference_number,p.updated_at,u.full_name FROM pickup_requests p JOIN users u ON u.id=p.user_id WHERE p.status="Completed" ORDER BY p.updated_at DESC LIMIT 5')->fetch_all(MYSQLI_ASSOC);

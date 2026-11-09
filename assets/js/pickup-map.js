@@ -144,23 +144,36 @@ document.addEventListener('DOMContentLoaded', function () {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
         const centerIcon = L.divIcon({ className: 'dropoff-center-marker', html: '<span aria-hidden="true">♻</span>', iconSize: [34, 34], iconAnchor: [17, 17] });
+        const organizationIcon = function (label) {
+            return L.divIcon({
+                className: 'dropoff-org-marker',
+                html: '<div class="dropoff-org-marker-wrap"><span class="dropoff-org-marker-pin" aria-hidden="true"></span><span class="dropoff-org-marker-label">' + label + '</span></div>',
+                iconSize: [28, 28],
+                iconAnchor: [14, 28],
+                popupAnchor: [14, -18]
+            });
+        };
 
         markers.forEach(function (markerData) {
-            const marker = L.marker([Number(markerData.lat), Number(markerData.lng)], { icon: markerData.status === 'Verified drop-off center' ? centerIcon : undefined }).addTo(map);
+            const isOrganization = markerData.status === 'Potential Drop-off Organization – Pending Verification';
+            const name = markerData.name || markerData.reference_number || 'Organization';
+            const marker = L.marker([Number(markerData.lat), Number(markerData.lng)], {
+                icon: isOrganization ? organizationIcon(name) : (markerData.status === 'Verified drop-off center' ? centerIcon : undefined)
+            }).addTo(map);
             const popup = document.createElement('div');
             const title = document.createElement('strong');
-            title.textContent = markerData.reference_number || 'Pickup';
+            title.textContent = name;
             popup.appendChild(title);
             popup.appendChild(document.createElement('br'));
-            popup.appendChild(document.createTextNode(markerData.address || ''));
-            if (markerData.accepted_categories) {
-                popup.appendChild(document.createElement('br'));
-                popup.appendChild(document.createTextNode('Accepts: ' + markerData.accepted_categories));
-            }
-            if (markerData.operating_hours) {
-                popup.appendChild(document.createElement('br'));
-                popup.appendChild(document.createTextNode('Hours: ' + markerData.operating_hours));
-            }
+            popup.appendChild(document.createTextNode('Address: ' + (markerData.address || '')));
+            const operatingHours = markerData.operating_hours || 'To be confirmed';
+            const acceptedItems = markerData.accepted_categories || 'To be confirmed';
+            popup.appendChild(document.createElement('br'));
+            popup.appendChild(document.createTextNode('Operating hours: ' + operatingHours));
+            popup.appendChild(document.createElement('br'));
+            popup.appendChild(document.createTextNode('Accepted e-waste items: ' + acceptedItems));
+            popup.appendChild(document.createElement('br'));
+            popup.appendChild(document.createTextNode('Verification status: ' + (markerData.status || 'Potential Drop-off Organization – Pending Verification')));
             if (markerData.contact_details) {
                 popup.appendChild(document.createElement('br'));
                 popup.appendChild(document.createTextNode('Contact: ' + markerData.contact_details));
@@ -171,8 +184,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 directions.target = '_blank'; directions.rel = 'noopener'; directions.textContent = 'Get directions';
                 popup.appendChild(document.createElement('br')); popup.appendChild(directions);
             }
-            popup.appendChild(document.createElement('br'));
-            popup.appendChild(document.createTextNode((markerData.status || '') + (markerData.service_type ? ' (' + markerData.service_type + ')' : '')));
+            if (markerData.service_type) {
+                popup.appendChild(document.createElement('br'));
+                popup.appendChild(document.createTextNode(markerData.service_type));
+            }
             marker.bindPopup(popup);
         });
 

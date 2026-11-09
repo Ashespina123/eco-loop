@@ -15,6 +15,8 @@ $activePickup = db()->query('SELECT * FROM pickup_requests WHERE user_id = ' . (
 $recentPickups = userRecentPickups((int) $user['id'], 5);
 $locationResult = db()->query('SELECT * FROM collection_points WHERE is_active = 1 ORDER BY name ASC');
 $collectionPoints = $locationResult->fetch_all(MYSQLI_ASSOC);
+ensurePartnerLocationsTable();
+$partnerLocations = db()->query('SELECT name, address, latitude, longitude FROM partner_locations ORDER BY name')->fetch_all(MYSQLI_ASSOC);
 $collectionMapPoints = [];
 foreach ($collectionPoints as &$point) {
     $point['lat'] = (float) $point['latitude'];
@@ -33,6 +35,18 @@ foreach ($collectionPoints as &$point) {
     $collectionMapPoints[] = ['lat' => $point['lat'], 'lng' => $point['lng'], 'reference_number' => $point['name'], 'address' => $point['address'], 'status' => 'Verified drop-off center', 'accepted_categories' => $point['accepted_categories'], 'operating_hours' => $point['operating_hours'], 'contact_details' => $point['contact_details']];
 }
 unset($point);
+foreach ($partnerLocations as $partnerLocation) {
+    $collectionMapPoints[] = [
+        'name' => $partnerLocation['name'],
+        'reference_number' => $partnerLocation['name'],
+        'address' => $partnerLocation['address'],
+        'lat' => (float) $partnerLocation['latitude'],
+        'lng' => (float) $partnerLocation['longitude'],
+        'status' => 'Potential Drop-off Organization – Pending Verification',
+        'accepted_categories' => 'To be confirmed',
+        'operating_hours' => 'To be confirmed',
+    ];
+}
 usort($collectionPoints, static fn($a, $b) => ($a['distance_km'] ?? PHP_FLOAT_MAX) <=> ($b['distance_km'] ?? PHP_FLOAT_MAX));
 $saverFee = pickupServiceFee('saver');
 $priorityFee = pickupServiceFee('priority');
@@ -79,6 +93,7 @@ require __DIR__ . '/../includes/header.php';
             <div class="section-heading">
                 <div><span class="eyebrow">Collection map</span><h2>Nearby collection points</h2></div>
                 <a href="<?php echo e(APP_ROOT . '/user/pickup-map.php'); ?>" class="btn btn-secondary">View map</a>
+                <a href="<?php echo e(APP_ROOT . '/user/partner-locations.php'); ?>" class="btn btn-secondary">Partners Location</a>
             </div>
             <div class="collection-map-layout">
                 <div id="customer-dashboard-map" class="dashboard-map"></div>
